@@ -32,8 +32,8 @@ Patterns interrupt each other with strict priority: any new pattern immediately 
 | Microcontroller | ESP32 DevKit (WROOM-32) | 1 | PlatformIO board: `esp32dev` |
 | LED Strip | Adafruit NeoPixel Ring (12 x WS2812 5050) | 1 | Adjustable via `LED_COUNT` constant; strip length flexible |
 | Power Supply | USB 5V >= 1.5A | 1 | Supports full-white brightness on 12 LEDs |
+| Level Shifter | Adafruit TXB0104 Bi-Directional Level Shifter | 1 | **REQUIRED** for reliable 3.3V→5V conversion; bi-directional with auto-direction sensing |
 | Buttons (optional) | 6mm tactile push-button | 3 | For pattern dismiss, brightness up/down (GPIO configurable) |
-| Logic Shifter (optional) | 74HCT125 or SN74AHCT125 | 1 | If WS2812 data line flickers on 3.3V (usually not needed) |
 | Diffuser | 3D printed or frosted acrylic | 1 | Mount for desk/monitor |
 | Cable | USB-C or Micro-USB | 1 | Depends on ESP32 board variant |
 
@@ -55,10 +55,11 @@ Patterns interrupt each other with strict priority: any new pattern immediately 
 
 ### Electrical Details
 
-- **WS2812 data signal:** 5V nominal, tolerates 3.3V logic with varying reliability
-- **Recommended:** If flicker occurs, add 74HCT125 level shifter (3.3V → 5V on data line)
+- **WS2812 data signal:** 5V nominal, requires proper level shifting from ESP32's 3.3V
+- **Level Shifter:** Use Adafruit TXB0104 for 3.3V → 5V conversion (see Hardware Documentation for details)
+- **TXB0104 features:** Bi-directional, auto-direction sensing, ~5ns propagation delay, minimal power draw
 - **Power delivery:** Connect USB 5V directly to NeoPixel power pins and ESP32 USB port
-- **Ground:** Common ground between ESP32 and NeoPixel strip
+- **Ground:** Common ground between ESP32, TXB0104, and NeoPixel strip (critical for proper operation)
 
 ---
 
@@ -582,7 +583,7 @@ pio device monitor -b 115200
 
 ## Known Constraints & Assumptions
 
-1. **3.3V Logic on WS2812:** Assumes 3.3V data signal is tolerated by WS2812 strip. If flicker observed, add 74HCT125 level shifter.
+1. **3.3V Logic on WS2812:** The Adafruit TXB0104 level shifter is **required** for reliable conversion to 5V logic. See Hardware Documentation (docs/HARDWARE.md) for complete details and assembly instructions.
 
 2. **HomeSpan Version:** Assumes HomeSpan >= 1.10.0; API may differ in earlier versions.
 

@@ -1,17 +1,16 @@
-@startuml
-' Attention Flasher - Class Diagram
-' Generated for readability in IDE (PlantUML)
+@startuml attetion-flasher
+' ========================================
+' Attention Flasher - Comprehensive Class & Sequence Diagram
+' ESP32 HomeKit Visual Alert Device Architecture
+' ========================================
 
-title Attention Flasher - Class Diagram
+title Attention Flasher - Complete Architecture\nHomeKit Integration via HomeSpan
 
-class Adafruit_NeoPixel {
-}
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
 
-class SpanCharacteristic {
-  + setVal(val)
-  + getVal()
-  + getNewVal()
-}
+' ============= ENUMERATIONS =============
 
 enum PatternType {
   PATTERN_IDLE
@@ -19,90 +18,367 @@ enum PatternType {
   PATTERN_FLASH
   PATTERN_PING
   PATTERN_POLICE
+  __usage__
+  Used to track current animation state
 }
 
-class PatternEngine {
-  - Adafruit_NeoPixel &strip
-  - PatternType currentPattern
-  - unsigned long startTime
-  - uint8_t rgbR, rgbG, rgbB, rgbW
-  - uint8_t rgbBrightness
-  + begin()
-  + startPattern(type)
-  + stopPattern()
-  + update()
-  + setRgbColor(r,g,b,w)
-  + setRgbBrightness(b)
-  + getCurrentPattern()
+' ============= HARDWARE LAYER =============
+
+package "Hardware Layer" #LightBlue {
+  class Adafruit_NeoPixel {
+    - uint16_t numLEDs
+    - uint8_t pin
+    - uint32_t* pixels
+    __Public Methods__
+    + begin() : void
+    + show() : void
+    + clear() : void
+    + setPixelColor(n, color) : void
+    + Color(r, g, b, w) : uint32_t
+    __Purpose__
+    Controls WS2812/SK6812 LED strips
+    Manages RGB/RGBW pixel data
+  }
+  
+  note top of Adafruit_NeoPixel
+    Hardware: GPIO 5
+    12 LEDs (RGBW)
+    NEO_GRBW + NEO_KHZ800
+  end note
 }
 
-class RGBLightService {
-  - SpanCharacteristic* power
-  - SpanCharacteristic* brightness
-  - SpanCharacteristic* hue
-  - SpanCharacteristic* saturation
-  + update()
+' ============= PATTERN ENGINE =============
+
+package "Pattern Engine Layer" #LightGreen {
+  class PatternEngine {
+    - Adafruit_NeoPixel& strip
+    - PatternType currentPattern
+    - unsigned long startTime
+    - uint8_t rgbR, rgbG, rgbB, rgbW
+    - uint8_t rgbBrightness
+    __Private Helpers__
+    - lerp8(a, b, t) : uint8_t
+    - makeColor(r, g, b, w) : uint32_t
+    - setAll(r, g, b, w) : void
+    __Pattern Renderers__
+    - renderRGB() : void
+    - renderFlash(elapsed) : void
+    - renderPing(elapsed) : void
+    - renderPolice(elapsed) : void
+    __Public API__
+    + begin() : void
+    + startPattern(type) : void
+    + stopPattern() : void
+    + update() : void
+    + setRgbColor(r,g,b,w) : void
+    + setRgbBrightness(b) : void
+    + getCurrentPattern() : PatternType
+  }
+  
+  note right of PatternEngine
+    **Core Animation Engine**
+    - State machine with 5 patterns
+    - Time-based animations via millis()
+    - RGB mode: stores color+brightness
+    - Flash: 100ms on / 400ms off cycle
+    - Ping: 20ms ramp + 2000ms fade (auto-off)
+    - Police: 150ms blue/white alternating
+  end note
 }
 
-class FlashLightService {
-  - SpanCharacteristic* power
-  + update()
+PatternEngine *-- Adafruit_NeoPixel : controls >
+PatternEngine --> PatternType : uses
+
+' ============= HOMESPAN FRAMEWORK =============
+
+package "HomeSpan Framework" #LightYellow {
+  class HomeSpan <<singleton>> {
+    __Configuration__
+    + setLogLevel(level) : void
+    + begin(category, name) : void
+    __Runtime__
+    + poll() : void
+    __Purpose__
+    HAP (HomeKit Accessory Protocol)
+    WiFi & mDNS management
+    Pairing & encryption
+  }
+  
+  abstract class SpanService {
+    __Lifecycle__
+    # update() : boolean {abstract}
+    __Purpose__
+    Base for HomeKit services
+    Called when HomeKit sends update
+  }
+  
+  class "Service::LightBulb" as ServiceLightBulb {
+    <<HomeKit Service>>
+    __UUID__
+    "00000043-0000-1000-8000-0026BB765291"
+    __Purpose__
+    Represents HomeKit Lightbulb
+  }
+  
+  class SpanCharacteristic {
+    - value : T
+    __Getters__
+    + getVal() : T
+    + getNewVal() : T
+    __Setters__
+    + setVal(val) : void
+    __Purpose__
+    Stores HomeKit characteristic value
+    Handles read/write from HomeKit
+  }
+  
+  class "Characteristic::On" as CharOn {
+    <<HomeKit Characteristic>>
+    Type: Boolean
+    UUID: "00000025-..."
+  }
+  
+  class "Characteristic::Brightness" as CharBrightness {
+    <<HomeKit Characteristic>>
+    Type: Integer (0-100)
+    UUID: "00000008-..."
+  }
+  
+  class "Characteristic::Hue" as CharHue {
+    <<HomeKit Characteristic>>
+    Type: Float (0-360)
+    UUID: "00000013-..."
+  }
+  
+  class "Characteristic::Saturation" as CharSaturation {
+    <<HomeKit Characteristic>>
+    Type: Float (0-100)
+    UUID: "0000002F-..."
+  }
+  
+  class SpanAccessory {
+    + SpanAccessory()
+    __Purpose__
+    Represents physical accessory
+    Container for services
+  }
+  
+  class "Service::AccessoryInformation" as ServiceAccessoryInfo {
+    <<HomeKit Service>>
+    Provides device metadata
+  }
+  
+  ServiceLightBulb --|> SpanService
+  CharOn --|> SpanCharacteristic
+  CharBrightness --|> SpanCharacteristic
+  CharHue --|> SpanCharacteristic
+  CharSaturation --|> SpanCharacteristic
+  ServiceAccessoryInfo --|> SpanService
+  
+  note right of HomeSpan
+    **Global singleton: homeSpan**
+    Entry point for HAP protocol
+    Manages WiFi + pairing state
+    Called in setup() and loop()
+  end note
 }
 
-class PingLightService {
-  - SpanCharacteristic* power
-  + update()
+' ============= APPLICATION SERVICES =============
+
+package "Application Services Layer" #LightCoral {
+  class RGBLightService {
+    - SpanCharacteristic* power
+    - SpanCharacteristic* brightness
+    - SpanCharacteristic* hue
+    - SpanCharacteristic* saturation
+    __Constructor__
+    + RGBLightService()
+    __HomeKit Callback__
+    + update() : boolean
+    __Logic in update()__
+    1. Read new values via getNewVal()
+    2. Convert HSV → RGB
+    3. Set pattern engine color/brightness
+    4. Start PATTERN_RGB
+    5. Disable other services
+    6. Return true (success)
+  }
+  
+  class FlashLightService {
+    - SpanCharacteristic* power
+    __Constructor__
+    + FlashLightService()
+    __HomeKit Callback__
+    + update() : boolean
+    __Logic in update()__
+    1. Read power state (on/off)
+    2. If ON: start PATTERN_FLASH + disable others
+    3. If OFF: stop pattern
+    4. Return true
+  }
+  
+  class PingLightService {
+    - SpanCharacteristic* power
+    __Constructor__
+    + PingLightService()
+    __HomeKit Callback__
+    + update() : boolean
+    __Logic in update()__
+    1. Read power state
+    2. If ON: start PATTERN_PING + disable others
+    3. If OFF: stop pattern
+    4. Return true
+    __Note__
+    Auto-off handled in loop()
+  }
+  
+  class PoliceLightService {
+    - SpanCharacteristic* power
+    __Constructor__
+    + PoliceLightService()
+    __HomeKit Callback__
+    + update() : boolean
+    __Logic in update()__
+    1. Read power state
+    2. If ON: start PATTERN_POLICE + disable others
+    3. If OFF: stop pattern
+    4. Return true
+  }
+  
+  RGBLightService --|> ServiceLightBulb
+  FlashLightService --|> ServiceLightBulb
+  PingLightService --|> ServiceLightBulb
+  PoliceLightService --|> ServiceLightBulb
+  
+  RGBLightService o-- CharOn : power
+  RGBLightService o-- CharBrightness : brightness
+  RGBLightService o-- CharHue : hue
+  RGBLightService o-- CharSaturation : saturation
+  
+  FlashLightService o-- CharOn : power
+  PingLightService o-- CharOn : power
+  PoliceLightService o-- CharOn : power
 }
 
-class PoliceLightService {
-  - SpanCharacteristic* power
-  + update()
+' ============= UTILITY FUNCTIONS =============
+
+class "disableOtherServices()" as DisableOthers <<utility>> {
+  __Parameters__
+  activePattern : PatternType
+  __Logic__
+  For each service != activePattern:
+    service->power->setVal(false)
+  __Purpose__
+  Ensures mutual exclusion
+  Only one pattern active at a time
 }
 
-class HomeSpan {
-  + begin(cat, name)
-  + poll()
+DisableOthers ..> RGBLightService : calls setVal(false)
+DisableOthers ..> FlashLightService : calls setVal(false)
+DisableOthers ..> PingLightService : calls setVal(false)
+DisableOthers ..> PoliceLightService : calls setVal(false)
+
+' ============= GLOBAL INSTANCES =============
+
+object "strip : Adafruit_NeoPixel" as strip_obj #LightBlue {
+  12 LEDs @ GPIO5
+  RGBW (NEO_GRBW)
 }
 
-' Global objects
-object "strip : Adafruit_NeoPixel" as strip_obj
-object "patternEngine : PatternEngine*" as patternEngine_obj
-object "rgbService : RGBLightService*" as rgbService_obj
-object "flashService : FlashLightService*" as flashService_obj
-object "pingService : PingLightService*" as pingService_obj
-object "policeService : PoliceLightService*" as policeService_obj
-
-' Relationships
-PatternEngine *-- Adafruit_NeoPixel : uses
-RGBLightService --> PatternEngine : uses `patternEngine`
-FlashLightService --> PatternEngine : uses `patternEngine`
-PingLightService --> PatternEngine : uses `patternEngine`
-PoliceLightService --> PatternEngine : uses `patternEngine`
-
-RGBLightService --> SpanCharacteristic : "power, brightness, hue, saturation"
-FlashLightService --> SpanCharacteristic : "power"
-PingLightService --> SpanCharacteristic : "power"
-PoliceLightService --> SpanCharacteristic : "power"
-
-' disableOtherServices utility
-class disableOtherServices <<utility>> {
-  + disableOtherServices(activePattern)
+object "patternEngine : PatternEngine*" as patternEngine_obj #LightGreen {
+  Global singleton
+  Initialized in setup()
 }
-disableOtherServices ..> RGBLightService : toggles
-disableOtherServices ..> FlashLightService : toggles
-disableOtherServices ..> PingLightService : toggles
-disableOtherServices ..> PoliceLightService : toggles
 
-' Notes for quick reading
-note right of PatternEngine
-  - Handles rendering modes: RGB, FLASH, PING, POLICE
-  - Stores current color & brightness
-  - Provides set/get and update loop
+object "rgbService : RGBLightService*" as rgbService_obj #LightCoral
+object "flashService : FlashLightService*" as flashService_obj #LightCoral
+object "pingService : PingLightService*" as pingService_obj #LightCoral
+object "policeService : PoliceLightService*" as policeService_obj #LightCoral
+
+' ============= RELATIONSHIPS =============
+
+RGBLightService --> patternEngine_obj : uses >
+FlashLightService --> patternEngine_obj : uses >
+PingLightService --> patternEngine_obj : uses >
+PoliceLightService --> patternEngine_obj : uses >
+
+patternEngine_obj --> strip_obj : controls >
+
+HomeSpan --> RGBLightService : calls update() >
+HomeSpan --> FlashLightService : calls update() >
+HomeSpan --> PingLightService : calls update() >
+HomeSpan --> PoliceLightService : calls update() >
+
+' ============= SETUP & LOOP FLOW =============
+
+note as SetupFlow
+  **setup() Sequence**
+  1. Serial.begin(115200)
+  2. patternEngine = new PatternEngine(strip)
+  3. patternEngine->begin()
+  4. homeSpan.setLogLevel(1)
+  5. homeSpan.begin(Category::Lighting, "Attention Flasher")
+  6. Create SpanAccessory + AccessoryInformation
+  7. Instantiate 4 LightBulb services:
+     - rgbService = new RGBLightService()
+     - flashService = new FlashLightService()
+     - pingService = new PingLightService()
+     - policeService = new PoliceLightService()
+  8. Ready for HomeKit pairing
 end note
 
-note left of RGBLightService
-  - Converts HSV -> RGB
-  - Calls patternEngine->startPattern(PATTERN_RGB)
+note as LoopFlow
+  **loop() Sequence**
+  1. Check dismiss button (if enabled)
+     → Stop all patterns
+  2. Check if PING pattern auto-completed
+     → Set pingService->power to false
+  3. patternEngine->update()
+     → Renders current pattern frame
+  4. homeSpan.poll()
+     → Processes HomeKit requests
+     → Calls service->update() on changes
 end note
+
+' ============= HOMEKIT COMMUNICATION FLOW =============
+
+note as HomeKitFlow
+  **HomeKit → HomeSpan → Service Flow**
+  
+  [iPhone/iPad HomeKit App]
+        ↓
+  HAP (HTTP/TCP over WiFi)
+        ↓
+  [homeSpan.poll() in loop()]
+        ↓
+  Detects characteristic change
+        ↓
+  [Calls service->update()]
+        ↓
+  Service reads via getNewVal()
+  Service calls patternEngine API
+  Service returns true/false
+        ↓
+  HomeSpan sends HAP response
+        ↓
+  [iPhone receives confirmation]
+  
+  **Example: Turn on RGB Light**
+  1. User taps RGB light in Home app
+  2. iPhone sends HAP request: On=true
+  3. homeSpan.poll() detects change
+  4. Calls rgbService->update()
+  5. update() reads: power->getNewVal() == true
+  6. Converts HSV → RGB
+  7. Calls patternEngine->setRgbColor(r,g,b,w)
+  8. Calls patternEngine->startPattern(PATTERN_RGB)
+  9. Calls disableOtherServices(PATTERN_RGB)
+  10. Returns true
+  11. HomeSpan sends HAP success
+  12. Next loop: patternEngine->update() renders RGB
+end note
+
+HomeKitFlow -[hidden]- SetupFlow
+SetupFlow -[hidden]- LoopFlow
 
 @enduml

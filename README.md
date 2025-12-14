@@ -21,16 +21,41 @@ Features
 
 Hardware (suggested)
 --------------------
-- ESP32 development board (e.g., esp32dev / DevKitC) — PlatformIO board: `esp32dev`
-- WS2812 / NeoPixel LEDs (example: 12-LED NeoPixel ring) — adjust `LED_COUNT` in code
-- USB 5V power (wall adapter or PC USB)
-- Optional 3 tactile buttons (dismiss / brightness up / brightness down)
-- Optional logic level shifter (3.3V -> 5V) if your strip is not tolerant of 3.3V data signals
-- Diffuser / mount for desk or monitor
+**Microcontroller:**
+- ESP-WROOM-32 ESP32 ESP-32S development board
+- PlatformIO board ID: `esp32dev`
+
+**LED Array:**
+- Adafruit NeoPixel Jewel RGBW (Product ID: 2860)
+- 7 x 5050 RGBW LEDs (Cool White ~6000K)
+- Adjustable if using different LED count—update `LED_COUNT` in code
+
+**Required Components:**
+- **Adafruit TXB0104 Bi-Directional Level Shifter** (3.3V ↔ 5V logic conversion) — **REQUIRED**
+  - Premium bi-directional auto-sensing level shifter
+  - Low propagation delay (~5ns) for reliable NeoPixel timing
+  - Minimal configuration needed
+- 1000µF electrolytic capacitor (power filtering)
+- 470Ω resistor (data line protection)
+- 5V @ 2A power supply (USB or barrel jack)
+
+**Optional:**
+- Tactile button for dismiss functionality
+- Enclosure with diffuser for desk or monitor mounting
+
+**⚠️ Level Shifter Required:**
+ESP32 outputs 3.3V logic, but NeoPixels require 5V logic (min 3.5V). The TXB0104 provides reliable and robust 3.3V→5V conversion with auto-direction sensing. See [docs/HARDWARE.md](docs/HARDWARE.md) for complete circuit diagrams, BOM, and assembly instructions.
 
 Power note
 ----------
-- WS2812 typical full-white current: ~60mA per LED. For 12 LEDs, budget up to ~720mA at 5V under full-white. Use a USB supply rated >= 1A to be safe.
+- NeoPixel Jewel power consumption:
+  - Per LED (RGBW): 18mA × 4 channels = 72mA max
+  - 7 LEDs full white: ~504mA
+  - Typical usage: ~250mA
+  - ESP32: ~160-240mA
+  - **Total system**: 750mA max @ 5V
+- **Recommended PSU**: 5V @ 2A minimum (provides safety margin)
+- USB 2.0 (500mA) is insufficient for full brightness
 
 Software stack
 --------------
@@ -136,7 +161,7 @@ Network & provisioning
 
 Level shifting recommendation
 ----------------------------
-- Many WS2812 strips tolerate 3.3V data while powered at 5V, but results vary. If you see flicker or unreliable colors, add a 74HCT125 / MOSFET level shifter to move data to 5V.
+- While some WS2812 strips tolerate 3.3V data, Adafruit's TXB0104 level shifter is **strongly recommended** for reliable operation. This ensures clean 5V logic levels and accounts for longer wire runs, power supply variations, and environmental interference. See [docs/HARDWARE.md](docs/HARDWARE.md) for comprehensive hardware setup guide.
 
 Testing & verification (manual)
 ------------------------------

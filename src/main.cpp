@@ -2,6 +2,13 @@
  * Attention Flasher - ESP32 HomeKit Visual Alert Device
  * Uses HomeSpan and Adafruit NeoPixel (RGBW support)
  *
+ * Hardware:
+ * - ESP-WROOM-32 ESP32 ESP-32S (3.3V logic)
+ * - Adafruit NeoPixel Jewel RGBW (Product ID: 2860)
+ * - 7 x 5050 RGBW LEDs (Cool White ~6000K)
+ * - Adafruit TXB0104 Bi-Directional Level Shifter (3.3V ↔ 5V logic)
+ * - See docs/HARDWARE.md for complete circuit diagrams and BOM
+ *
  * Features:
  * - RGB Light (full color + brightness control)
  * - Flashing Alert (100ms on / 400ms off white flash)
@@ -20,7 +27,7 @@
 #define BUTTON_DISMISS_PIN -1 // Optional dismiss button (set to GPIO or -1 to disable)
 
 // LED Configuration
-#define LED_COUNT 12               // Number of LEDs in strip/ring
+#define LED_COUNT 7                // Number of LEDs (Adafruit NeoPixel Jewel RGBW)
 #define LED_IS_RGBW true           // Set true for RGBW, false for RGB
 #define LED_DEFAULT_BRIGHTNESS 128 // Default brightness for RGB mode (0-255)
 
@@ -35,7 +42,7 @@
 #define DEVICE_NAME "Attention Flasher"
 #define MANUFACTURER "DIY"
 #define SERIAL_NUMBER "AF-001"
-#define MODEL "AF-ESP32-RGBW"
+#define MODEL "ESP32-JEWEL-RGBW-7"
 #define FIRMWARE_VERSION "1.0.0"
 
 // ============= PATTERN ENGINE =============
