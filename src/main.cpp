@@ -23,7 +23,7 @@
 // ============= CONFIGURATION =============
 
 // GPIO Configuration
-#define LED_PIN 5             // NeoPixel data pin
+#define LED_PIN 15            // NeoPixel data pin
 #define BUTTON_DISMISS_PIN -1 // Optional dismiss button (set to GPIO or -1 to disable)
 
 // LED Configuration
@@ -32,18 +32,18 @@
 #define LED_DEFAULT_BRIGHTNESS 128 // Default brightness for RGB mode (0-255)
 
 // Pattern Timings (milliseconds)
-#define FLASH_ON_MS 100
-#define FLASH_OFF_MS 400
-#define PING_RAMP_MS 20
-#define PING_FADE_MS 2000
-#define POLICE_FRAME_MS 150
+#define FLASH_ON_MS 70
+#define FLASH_OFF_MS 200
+#define PING_RAMP_MS 30
+#define PING_FADE_MS 1500
+#define POLICE_FRAME_MS 100
 
 // HomeKit Device Info
 #define DEVICE_NAME "Attention Flasher"
-#define MANUFACTURER "DIY"
+#define MANUFACTURER "jhpinder"
 #define SERIAL_NUMBER "AF-001"
 #define MODEL "ESP32-JEWEL-RGBW-7"
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.1"
 
 // ============= PATTERN ENGINE =============
 
@@ -297,6 +297,7 @@ struct RGBLightService : Service::LightBulb
 
   RGBLightService() : Service::LightBulb()
   {
+    new Characteristic::Name("RGBW");
     power = new Characteristic::On(0);
     brightness = new Characteristic::Brightness(50);
     hue = new Characteristic::Hue(0);
@@ -388,6 +389,7 @@ struct FlashLightService : Service::LightBulb
 
   FlashLightService() : Service::LightBulb()
   {
+    new Characteristic::Name("Strobe");
     power = new Characteristic::On(0);
     Serial.println("Created Flash Light Service");
   }
@@ -417,6 +419,7 @@ struct PingLightService : Service::LightBulb
 
   PingLightService() : Service::LightBulb()
   {
+    new Characteristic::Name("Ping");
     power = new Characteristic::On(0);
     Serial.println("Created Ping Light Service");
   }
@@ -446,6 +449,7 @@ struct PoliceLightService : Service::LightBulb
 
   PoliceLightService() : Service::LightBulb()
   {
+    new Characteristic::Name("Police");
     power = new Characteristic::On(0);
     Serial.println("Created Police Light Service");
   }
@@ -531,7 +535,6 @@ void setup()
   new Characteristic::Model(MODEL);
   new Characteristic::FirmwareRevision(FIRMWARE_VERSION);
   new Characteristic::Identify();
-
   // Create services
   rgbService = new RGBLightService();
   flashService = new FlashLightService();
