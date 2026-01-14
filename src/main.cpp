@@ -17,6 +17,7 @@
  */
 
 #include <Arduino.h>
+#include <math.h>
 #include <Adafruit_NeoPixel.h>
 #include "HomeSpan.h"
 
@@ -33,10 +34,10 @@
 
 // Pattern Timings (milliseconds)
 #define FLASH_ON_MS 70
-#define FLASH_OFF_MS 200
-#define PING_RAMP_MS 30
+#define FLASH_OFF_MS 160
+#define PING_RAMP_MS 40
 #define PING_FADE_MS 1500
-#define POLICE_FRAME_MS 100
+#define POLICE_FRAME_MS 300
 
 // HomeKit Device Info
 #define DEVICE_NAME "Attention Flasher"
@@ -117,7 +118,10 @@ private:
 
     if (on)
     {
-      setAll(255, 255, 255, LED_IS_RGBW ? 255 : 0);
+      // Prefer RGB channels for white unless user explicitly set the white
+      // channel (`rgbW`) — only then drive the cool-white LED.
+      uint8_t w = (LED_IS_RGBW && rgbW > 0) ? 255 : 0;
+      setAll(255, 255, 255, w);
     }
     else
     {
@@ -145,13 +149,16 @@ private:
     }
     else
     {
-      // Fade down phase
+      // Fade down phase with exponential decay for natural fade perception
       unsigned long fadeElapsed = elapsed - PING_RAMP_MS;
       float t = (float)fadeElapsed / (float)PING_FADE_MS;
-      brightness = lerp8(255, 0, t);
+      // Exponential decay: fast drop early, then asymptotic tail
+      // e^(-5*t) starts at 1 and drops sharply, reaches ~0.007 by t=1
+      t = exp(-5.0f * t);
+      brightness = (uint8_t)(255 * t + 0.5f);
     }
 
-    setAll(brightness, brightness, brightness, LED_IS_RGBW ? brightness : 0);
+    setAll(brightness / 32, 0, 0, brightness);
   }
 
   void renderPolice(unsigned long elapsed)
@@ -174,11 +181,11 @@ private:
         // Frame 1: first half blue, second half white
         if (firstHalf)
         {
-          color = makeColor(0, 0, 255, 0);
+          color = makeColor(0, 0, 200, 0);
         }
         else
         {
-          color = makeColor(255, 255, 255, LED_IS_RGBW ? 255 : 0);
+          color = makeColor(0, 0, 0, 255);
         }
       }
       else
@@ -186,7 +193,7 @@ private:
         // Frame 2: first half white, second half blue
         if (firstHalf)
         {
-          color = makeColor(255, 255, 255, LED_IS_RGBW ? 255 : 0);
+          color = makeColor(0, 0, 0, 255);
         }
         else
         {
