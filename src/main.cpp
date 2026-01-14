@@ -38,6 +38,7 @@
 #define PING_RAMP_MS 40
 #define PING_FADE_MS 1500
 #define POLICE_FRAME_MS 300
+#define POLICE_GAP_MS 10
 
 // HomeKit Device Info
 #define DEVICE_NAME "Attention Flasher"
@@ -163,44 +164,45 @@ private:
 
   void renderPolice(unsigned long elapsed)
   {
-    // Two-frame animation: half blue/half white, then swap
-    unsigned long frameTime = POLICE_FRAME_MS;
-    unsigned long twoFrames = frameTime * 2;
-    unsigned long pos = elapsed % twoFrames;
+    // Animation: all blue → gap → all white → gap → repeat
+    // Speed varies: 5 cycles normal, then 5 cycles 3x speed, then repeat
+    unsigned long frame = POLICE_FRAME_MS;
+    unsigned long gap = POLICE_GAP_MS;
+    unsigned long normalCycle = 2 * frame + 2 * gap; // 620ms
+    unsigned long fastCycle = normalCycle / 3;       // 206ms (3x speed)
 
-    int halfCount = LED_COUNT / 2;
-    bool frame1 = (pos < frameTime);
+    unsigned long normalPhase = 5 * normalCycle;        // 3100ms (5 cycles)
+    unsigned long fastPhase = 15 * fastCycle;           // 3090ms (15 cycles at 3x speed)
+    unsigned long superCycle = normalPhase + fastPhase; // 6190ms total
+
+    unsigned long posInSuper = elapsed % superCycle;
+    bool isFastPhase = (posInSuper >= normalPhase);
+    unsigned long cycleToUse = isFastPhase ? fastCycle : normalCycle;
+    unsigned long posInCycle = isFastPhase ? (posInSuper - normalPhase) % fastCycle : posInSuper % normalCycle;
+
+    unsigned long frameTime = frame / (isFastPhase ? 3 : 1);
+
+    uint32_t color = makeColor(0, 0, 0, 0); // default to dark
+
+    if (posInCycle < frameTime)
+    {
+      // All blue
+      color = makeColor(0, 0, 255, 0);
+    }
+    else if (posInCycle < frameTime + gap)
+    {
+      // Gap (dark)
+      color = makeColor(0, 0, 0, 0);
+    }
+    else if (posInCycle < 2 * frameTime + gap)
+    {
+      // All white
+      color = makeColor(0, 0, 0, 255);
+    }
+    // else: gap again (already dark)
 
     for (int i = 0; i < LED_COUNT; i++)
     {
-      bool firstHalf = (i < halfCount);
-      uint32_t color;
-
-      if (frame1)
-      {
-        // Frame 1: first half blue, second half white
-        if (firstHalf)
-        {
-          color = makeColor(0, 0, 200, 0);
-        }
-        else
-        {
-          color = makeColor(0, 0, 0, 255);
-        }
-      }
-      else
-      {
-        // Frame 2: first half white, second half blue
-        if (firstHalf)
-        {
-          color = makeColor(0, 0, 0, 255);
-        }
-        else
-        {
-          color = makeColor(0, 0, 255, 0);
-        }
-      }
-
       strip.setPixelColor(i, color);
     }
     strip.show();
